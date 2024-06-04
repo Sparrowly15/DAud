@@ -16,7 +16,8 @@ def main():
     """
     # auditor = dauditor("amazon.com", ["selector1", "selector2"], "CNAME")
     auditor = dauditor("amazon.com")  # No selector or record type set for this test
-
+    auditor.validate_spf()
+    exit()
     audit_package = {
         "target": audit_target,
         "dkim_selector": dkim_selector,

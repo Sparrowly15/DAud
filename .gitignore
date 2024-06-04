@@ -1,5 +1,9 @@
 # venv
 daud-env/
+Include/
+Lib/
+Scripts/
+*.cfg
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

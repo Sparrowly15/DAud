@@ -30,7 +30,8 @@ class dauditor():
     resolver = dns.resolver.Resolver()
     resolver.nameservers = ['8.8.8.8']
     resolver.port = 53
-    spf_record = None
+    #spf_record = None
+    spf_record = ['v=spf1 include:spf1.amazon.com include:spf2.amazon.com include:amazonses.com -all']
     dkim_records = None  # one domain can have multiple dkim records if they're on different selectors
     dmarc_record = None
 
@@ -53,7 +54,7 @@ class dauditor():
     def fetch_spf(self):
         """
         Makes a request to the DNS server for the SPF record, parses, then returns it as a list.
-        An empty list is returned no match is found.
+        An empty list is returned if no match is found.
 
         Returns:
         list: The parsed SPF record(s)
@@ -62,9 +63,9 @@ class dauditor():
         fetched_spf_record = list()
         for answer in txt_records.rrset:
             a = answer.to_text()
-            found_spf = re.search(r'^"(v=spf1.+)"$', a)
+            found_spf = re.search(r'v=spf1.+(?=")', a)
             if found_spf is not None:
-                fetched_spf_record.append(found_spf.group(1))
+                fetched_spf_record.append(found_spf.group(0))
         self.spf_record = fetched_spf_record
         return fetched_spf_record
 
@@ -82,16 +83,16 @@ class dauditor():
         fetched_dkim_record = list()
         for answer in dns_record.rrset:
             a = answer.to_text()
-            found_dkim = re.search(r'^"(v=DKIM1.+)"$', a)
+            found_dkim = re.search(r'v=DKIM1.+(?=")', a)
             if found_dkim is not None:
-                fetched_dkim_record.append(found_dkim.group(1))
+                fetched_dkim_record.append(found_dkim.group())
         self.dkim_records = fetched_dkim_record
         return fetched_dkim_record
 
     def fetch_dmarc(self):
         """
         Makes a request to the DNS server for the DMARC record, parses, then returns it as a list.
-        An empty list is returned no match is found.
+        An empty list is returned if no match is found.
 
         Returns:
         list: The parsed DMARC record(s)
@@ -101,7 +102,7 @@ class dauditor():
         fetched_dmarc_record = list()
         for answer in txt_records.rrset:
             a = answer.to_text()
-            found_dmarc = re.search(r'^"(v=DMARC1.+)"$', a)
+            found_dmarc = re.search(r'v=DMARC1.+(?=")', a)
             if found_dmarc is not None:
                 fetched_dmarc_record.append(found_dmarc.group(1))
         self.dkim_records = fetched_dmarc_record
@@ -109,23 +110,24 @@ class dauditor():
 
     def validate_spf(self):
         if self.spf_record is None:
-            print("ERROR: SPF record not fetched")
-            return False
-        if len(spf_record) == 0:
+            self.fetch_spf()
+        if len(self.spf_record) == 0:
             print("ERROR: no SPF record was found")
             return False
-        elif len(spf_record) >= 2:
+        elif len(self.spf_record) >= 2:
             print("ERROR: multiple SPF records found")
             return False
-        spf_record = re.split(' ', spf_record)
+        #valid_spf = re.match(r'v=spf1 ((ipv4|ipv6):(\d{1,3}\.){3}\d{1,3} )*(include:(\w+\.)+\w+ )* [-~+]all', self.spf_record[0])
+        valid_spf = re.match(r'^v=spf1\s(include:([\w-]+\.)+[\w-]+\s)*[-~+]all', self.spf_record[0])
+        print(valid_spf)
+        print(valid_spf.group())
         # still need to validate
         return
 
     def validate_dkim(self):
         if self.dkim_records is None:
-            print("ERROR: DKIM record not fetched")
-            return False
-        elif len(self.dkim_records) == 0:
+            self.fetch_dkim()
+        if len(self.dkim_records) == 0:
             print("ERROR: no DKIM record was found")
             return False
         elif len(self.dkim_records) >= 2:
@@ -138,9 +140,8 @@ class dauditor():
 
     def validate_dmarc(self):
         if self.dmarc_record is None:
-            print("ERROR: DMARC record not fetched")
-            return False
-        elif len(self.dmarc_record) == 0:
+            self.fetch_dmarc()
+        if len(self.dmarc_record) == 0:
             print("ERROR: no DMARC record was found")
             return False
         elif len(self.dmarc_record) >= 2:
@@ -150,7 +151,7 @@ class dauditor():
         # still need to validate
         return
 
-    def audit_dns_records():
+    def audit_dns_records(self):
         """
         Consolidates the functionality for fetching and checking the SPF and DMARC records, along with the DKIM record if DKIM selector is provided.
 
@@ -158,16 +159,16 @@ class dauditor():
         audit_package (dict): The example string provided
 
         Returns:
-        dict: The result for SPF, DKIM, and DMARC
+        dict: A dict of tuples with the (boolean result of validation, found record) for each record
         """
-        spf_record = fetch_spf(audit_package)
-        dmarc_record = fetch_dmarc(audit_package)
-        dkim_record = fetch_dkim(audit_package)
+        fetched_spf_record = self.fetch_spf()
+        fetched_dkim_record = self.fetch_dkim()
+        fetched_dmarc_record = self.fetch_dmarc()
         
         results = {
-            "SPF_valid": validate_spf(spf_record),
-            "DKIM_valid": validate_dkim(dkim_record),
-            "DMARC_valid": validate_dmarc(dmarc_record)
+            "SPF": (self.validate_spf(), fetched_spf_record),
+            "DKIM": (self.validate_dkim(), fetched_dkim_record),
+            "DMARC": (self.validate_dmarc(), fetched_dmarc_record)
         }
         return results
 
