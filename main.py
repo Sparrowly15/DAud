@@ -14,25 +14,10 @@ def main():
 
     Configure the target domain, if DKIM should be checked, and what selector/record type the DKIM uses. SPF and DMARC will be checked by default.
     """
-    # auditor = dauditor("amazon.com", ["selector1", "selector2"], "CNAME")
-    auditor = dauditor("amazon.com")  # No selector or record type set for this test
-    auditor.validate_spf()
-    exit()
-    audit_package = {
-        "target": audit_target,
-        "dkim_selector": dkim_selector,
-        "dkim_name": dkim_selector + "_domainkey." + audit_target,
-        "dkim_type": dkim_record_type,
-        "resolver": resolver
-    }
-
-    try:
-        results_dict = audit_dns_records(audit_package)
-    except dns.exception.DNSException as generic:               # I'll change this from the base class to a series of specific ones to support automatically retrying in a later update.
-        print(f"Failed to resolve due to {generic}")
-
-    print(results_dict)
-    return 0
+    # EXAMPLE: auditor = dauditor('example.com', ['selector1', 'selector2'], 'TXT')
+    auditor = dauditor('example.com', ['selector1'], 'TXT')
+    print(auditor.audit_dns_records())
+    return
 
 if __name__ == "__main__":
     main()
