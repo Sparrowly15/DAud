@@ -9,12 +9,12 @@ class dauditor():
     Handles fetching and parsing of SPF, DKIM, and DMARC records
 
     Attributes:
-    spf_record (list): fetched SPF record for the domain
-    dkim_records (list): fetched DKIM record(s) for the selector + domain
-    dmarc_record (list): fetched DMARC record for the domain
     target (str): subject of the DNS question
     selectors (str): DKIM selector(s) to go with the domain
     dkim_type (str): name of the record
+    spf_record (list): fetched SPF record for the domain
+    dkim_records (list): fetched DKIM record(s) for the selector + domain
+    dmarc_record (list): fetched DMARC record for the domain
 
     Methods:
     change_target(new_target, new_dkim_selector, new_dkim_type): change target and associated DKIM variables, then wipe saved records
@@ -34,13 +34,21 @@ class dauditor():
     dmarc_record = None
 
     def __init__(self, audit_target: str, dkim_selectors: list = [], dkim_record_type: str = "TXT"):
-        self.target = audit_target
-        self.selectors = dkim_selectors
-        self.dkim_type = dkim_record_type  # which record the DKIM is in
+        self.target = audit_target          # domain name to check for the SPF, DKIM, and DMARC records
+        self.selectors = dkim_selectors     # DKIM selectors needed to query
+        self.dkim_type = dkim_record_type   # the record type to query for the DKIM
     
-    def change_target(self, new_target: str, new_dkim_selectors: list = [], new_dkim_type: str = "TXT"):
+    def change_target(self, new_target: str, new_dkim_selectors: list = [], new_dkim_type: str = "TXT") -> None:
         """
-        Sets new target, selector, and dkim type to 'swap' targets for the object
+        Sets new target, selector, and dkim type to 'swap' targets for the object. Clears the fetched recrods
+        
+        Parameters:
+        new_target (str): new domain name
+        new_dkim_selectors (list): list of DKIM selectors for the new domain name
+        new_dkim_type (str): the type of record to query for the DKIM record
+
+        Returns:
+        None
         """
         self.spf_record = None
         self.dkim_records = None
@@ -49,7 +57,7 @@ class dauditor():
         self.selectors = new_dkim_selectors
         self.dkim_type = new_dkim_type
 
-    def fetch_spf(self):
+    def fetch_spf(self) -> list:
         """
         Makes a request to the DNS server for the SPF record, parses, then returns it as a list.
         An empty list is returned if no match is found.
@@ -70,7 +78,7 @@ class dauditor():
                 self.spf_record.append(found_spf.group())
         return self.spf_record
 
-    def fetch_dkim(self):
+    def fetch_dkim(self) -> list:
         """
         Makes a request to the DNS server for the DKIM record, parses, then returns it as a list.
         An empty list is returned if no selector is provided or no match is found.
@@ -97,7 +105,7 @@ class dauditor():
                     self.dkim_records.append(found_dkim.group())
         return self.dkim_records
 
-    def fetch_dmarc(self):
+    def fetch_dmarc(self) -> list:
         """
         Makes a request to the DNS server for the DMARC record, parses, then returns it as a list.
         An empty list is returned if no match is found.
@@ -121,7 +129,13 @@ class dauditor():
             self.dmarc_record[0] = self.dmarc_record[0].replace('" "', ' ')
         return self.dmarc_record
 
-    def validate_spf(self):
+    def validate_spf(self) -> tuple:
+        """
+        Uses a regex pattern for a properly configured SPF record to validate that the previously fetched record matches the pattern
+
+        Returns:
+        tuple: Either a tuple[bool, list] or a tuple[bool, str] on a failed validation
+        """
         if self.spf_record is None:
             self.fetch_spf()
         if len(self.spf_record) == 0:
@@ -135,7 +149,13 @@ class dauditor():
             return (True, valid_spf.group())
         return (False, "ERROR: found SPF record was invalid")
 
-    def validate_dkim(self):
+    def validate_dkim(self) -> tuple:
+        """
+        Uses a regex pattern for a properly configured DKIM record to validate that the previously fetched records match the pattern
+
+        Returns:
+        tuple: Either a tuple[bool, list] or a tuple[bool, str] on a failed validation
+        """
         if self.dkim_records is None:
             self.fetch_dkim()
         if len(self.dkim_records) == 0:
@@ -154,7 +174,13 @@ class dauditor():
             return (True, valid_records)
         return (False, "ERROR: found DKIM records were invalid")
 
-    def validate_dmarc(self):
+    def validate_dmarc(self) -> tuple:
+        """
+        Uses a regex pattern for a properly configured DMARC record to validate that the previously fetched record matches the pattern
+
+        Returns:
+        tuple: Either a tuple[bool, list] or a tuple[bool, str] on a failed validation
+        """
         if self.dmarc_record is None:
             self.fetch_dmarc()
         if len(self.dmarc_record) == 0:
@@ -168,20 +194,20 @@ class dauditor():
             return (True, valid_dmarc.group())
         return (False, "ERROR: found DMARC record was invalid")
 
-    def audit_dns_records(self):
+    def audit_dns_records(self) -> dict:
         """
         Consolidates the functionality for fetching and checking the SPF and DMARC records, along with the DKIM record if DKIM selector is provided.
 
         Returns:
-        dict: A dict of tuples with the (boolean result of validation, found record) for each record
+        dict: A dict of tuples with the [boolean result of validation, found record] for each record
         """
         fetched_spf_record = self.fetch_spf()
-        fetched_dkim_record = self.fetch_dkim()
+        fetched_dkim_records = self.fetch_dkim()
         fetched_dmarc_record = self.fetch_dmarc()
         
         results = {
             "SPF": (self.validate_spf(), fetched_spf_record),
-            "DKIM": (self.validate_dkim(), fetched_dkim_record),
+            "DKIM": (self.validate_dkim(), fetched_dkim_records),
             "DMARC": (self.validate_dmarc(), fetched_dmarc_record)
         }
         return results
