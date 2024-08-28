@@ -44,18 +44,24 @@ def main():
     # EXAMPLE: auditor = dauditor('example.com', ['selector1', 'selector2'], 'TXT')
     auditor = dauditor(domain, selectors, dkim_type)
     result = auditor.audit_dns_records()
-    if result["SPF"][0]:
+    if result["SPF"][0][0]:
         print(f"SPF\tVALID\n\t{result['SPF'][1][0]}")
+    elif len(result['SPF'][1]) == 0:
+        print(f"SPF\tINVALID\n\tNO RECORD FOUND")
     else:
         print(f"SPF\tINVALID\n\t{result['SPF'][1][0]}")
-    if result["DKIM"][0]:
+    if result["DKIM"][0][0]:
         for dkim in result['DKIM'][1]:
             print(f"DKIM\tVALID\n\t{dkim}")
+    elif len(result['DKIM'][1]) == 0:
+        print(f"DKIM\tINVALID\n\tNO RECORD FOUND")
     else:
         for dkim in result['DKIM'][1]:
             print(f"DKIM\tINVALID\n\t{dkim}")
-    if result["DMARC"][0]:
+    if result["DMARC"][0][0]:
         print(f"DMARC\tVALID\n\t{result['DMARC'][1][0]}")
+    elif len(result['DMARC'][1]) == 0:
+        print(f"DMARC\tINVALID\n\tNO RECORD FOUND")
     else:
         print(f"DMARC\tINVALID\n\t{result['DMARC'][1][0]}")
     return

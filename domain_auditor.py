@@ -72,7 +72,7 @@ class dauditor():
             print(f"FAILED SPF FETCH FOR {self.target} WITH ERROR {error}")
             return self.spf_record
         for answer in txt_records.rrset:
-            a = answer.to_text()
+            a = answer.to_text().replace('" "', '') # likely won't need to span multiple strings but still replacing just in case
             found_spf = re.search(r'v=spf1.+(?=")', a)
             if found_spf is not None:
                 self.spf_record.append(found_spf.group())
@@ -99,10 +99,12 @@ class dauditor():
                 print(f"FAILED DKIM FETCH FOR {query_name} WITH ERROR {error}")
                 continue
             for answer in dns_record.rrset:
-                a = answer.to_text()
-                found_dkim = re.search(r'v=DKIM1.+(?=")', a)
-                if found_dkim is not None:
-                    self.dkim_records.append(found_dkim.group())
+                a = answer.to_text().replace('" "', '') # replace is required as the record is usually long enough to span multiple sections
+            found_dkim = re.search(r'v=DKIM1.+(?=")', a)
+            if found_dkim is not None:
+                self.dkim_records.append(found_dkim.group())
+            if len(self.dkim_records) == 0:
+                print(f"DKIM FETCHED FOR {query_name} BUT HAD NO DATA")
         return self.dkim_records
 
     def fetch_dmarc(self) -> list:
@@ -121,10 +123,13 @@ class dauditor():
             print(f"FAILED DMARC FETCH FOR {dmarc_domain} WITH ERROR {error}")
             return self.dmarc_record
         for answer in txt_records.rrset:
-            a = answer.to_text()
+            a = answer.to_text().replace('" "', '') # replace is required as the record is usually long enough to span multiple sections
             found_dmarc = re.search(r'v=DMARC1.+(?=")', a)
             if found_dmarc is not None:
                 self.dmarc_record.append(found_dmarc.group())
+        if len(self.dmarc_record) == 0:
+            print(f"DMARC FETCHED FOR {dmarc_domain} BUT HAD NO DATA")
+            return self.dmarc_record
         if self.dmarc_record[0][0:10] == 'v=DMARC1;"':
             self.dmarc_record[0] = self.dmarc_record[0].replace('" "', ' ')
         return self.dmarc_record
